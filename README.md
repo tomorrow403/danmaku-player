@@ -70,7 +70,7 @@ python3 -m http.server 8000
 ## 目录结构
 
 ```text
-danmaku-player-demo/
+danmaku-player/
 ├── index.html               # 单页演示（渲染引擎 + 控制面板）
 ├── data/
 │   └── sample_comments.json # 示例弹幕数据（自造文案）
