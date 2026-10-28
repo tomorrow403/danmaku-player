@@ -1,1 +1,16 @@
-
+{
+  "note": "示例弹幕数据，仅用于渲染引擎调试，非真实接口返回内容",
+  "count": 10,
+  "comments": [
+    { "time": 0.6, "text": "这个分镜太帅了", "color": "#ffffff" },
+    { "time": 1.4, "text": "前方高能预警", "color": "#ffffff" },
+    { "time": 2.2, "text": "第一次看到这种转场", "color": "#ffffff" },
+    { "time": 3.0, "text": "作画经费在燃烧", "color": "#ffd166" },
+    { "time": 3.8, "text": "这段 BGM 好耳熟", "color": "#ffffff" },
+    { "time": 4.6, "text": "细节拉满了", "color": "#ffffff" },
+    { "time": 5.4, "text": "这里笑死我了", "color": "#7ee787" },
+    { "time": 6.2, "text": "截图当壁纸", "color": "#ffffff" },
+    { "time": 7.0, "text": "节奏把握得真好", "color": "#ffffff" },
+    { "time": 7.8, "text": "等一个名场面", "color": "#ffffff" }
+  ]
+}
