@@ -4,8 +4,8 @@
 当前处于开发调试阶段，尚未对外发布正式版本，目标是跑通
 「视频文件识别 → 匹配番剧 → 拉取弹幕 → 播放器内叠加渲染」的完整链路。
 
-- 在线演示：https://<你的用户名>.github.io/danmaku-player-demo/
-- 源码仓库：https://github.com/<你的用户名>/danmaku-player-demo
+- 在线演示：https://tomorrow403.github.io/danmaku-player/
+- 源码仓库：https://github.com/tomorrow403/danmaku-player
 
 > 演示页可直接打开，选择一个本机视频文件即可看到弹幕叠加效果；
 > 不选视频也能观察渲染引擎行为（使用内置示例数据）。
