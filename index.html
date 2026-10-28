@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DanmakuPlayer 原型 · 本地视频弹幕渲染 Demo</title>
+<style>
+  :root{
+    --bg:#0b0d12;
+    --panel:#151922;
+    --panel-2:#1c2230;
+    --line:#2a3142;
+    --text:#e8ecf4;
+    --muted:#8d97ab;
+    --accent:#4aa8ff;
+    --ok:#3ddc97;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 20px 56px}
+  header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  h1{font-size:20px;margin:0;font-weight:650;letter-spacing:.2px}
+  .badge{
+    font-size:12px;padding:2px 8px;border-radius:999px;
+    background:rgba(74,168,255,.12);color:var(--accent);
+    border:1px solid rgba(74,168,255,.35);
+  }
+  .badge.ok{background:rgba(61,220,151,.1);color:var(--ok);border-color:rgba(61,220,151,.3)}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+
+  .stage{
+    position:relative;width:100%;aspect-ratio:16/9;background:#000;
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  }
+  .stage video{width:100%;height:100%;object-fit:contain;display:block;background:#000;position:relative;z-index:0}
+  .placeholder{
+    position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:6px;text-align:center;
+    background:
+      radial-gradient(circle at 30% 30%,rgba(74,168,255,.16),transparent 55%),
+      radial-gradient(circle at 75% 65%,rgba(160,110,255,.14),transparent 55%),
+      linear-gradient(160deg,#12161f,#0b0d12);
+    color:var(--muted);
+  }
+  .placeholder strong{color:#cfd7e6;font-size:15px;font-weight:600}
+  .placeholder span{font-size:12.5px}
+  .dm-layer{position:absolute;inset:0;z-index:2;overflow:hidden;pointer-events:none}
+  .dm{
+    position:absolute;left:100%;white-space:nowrap;
+    font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.9),0 0 6px rgba(0,0,0,.55);
+    will-change:transform;
+  }
+  .hud{
+    position:absolute;left:10px;bottom:8px;z-index:3;font-size:12px;color:#cfd7e6;
+    background:rgba(0,0,0,.45);padding:2px 8px;border-radius:6px;backdrop-filter:blur(4px);
+  }
+
+  .panel{
+    margin-top:14px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:14px 16px;
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 22px;
+  }
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between}
+  .field label b{color:var(--text);font-weight:500}
+  input[type="text"]{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:7px 10px;font-size:13px;outline:none;width:100%;
+  }
+  input[type="text"]:focus{border-color:var(--accent)}
+  input[type="range"]{accent-color:var(--accent);width:100%}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button,.filebtn{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:7px 13px;font-size:13px;cursor:pointer;transition:.15s;
+    font-family:inherit;
+  }
+  button:hover,.filebtn:hover{border-color:var(--accent);color:#fff}
+  .filebtn.primary{background:rgba(74,168,255,.14);border-color:rgba(74,168,255,.45);color:#bfe0ff}
+  input[type="file"]{display:none}
+  .switch{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+
+  section.notes{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card h2{font-size:13.5px;margin:0 0 10px;color:#cfd7e6;font-weight:600;letter-spacing:.3px}
+  .card ul{margin:0;padding-left:18px;color:var(--muted);font-size:13px}
+  .card li{margin:3px 0}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;color:#9fd0ff}
+  footer{margin-top:22px;color:#5f6a7d;font-size:12px;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>DanmakuPlayer</h1>
+    <span class="badge">原型 v0.1</span>
+    <span class="badge ok">本地渲染 · 无需服务端</span>
+  </header>
+  <p class="sub">本地视频弹幕播放器前端原型：选择本机视频即可叠加弹幕渲染。当前弹幕为内置示例数据，用于验证渲染引擎，尚未接入开放接口。</p>
+
+  <div class="stage" id="stage">
+    <video id="video" playsinline></video>
+    <div class="dm-layer" id="dmLayer"></div>
+    <div class="placeholder" id="placeholder">
+      <strong>选择本地视频文件开始</strong>
+      <span>也可以不选视频，直接查看弹幕渲染效果</span>
+    </div>
+    <div class="hud" id="hud">状态：未加载视频 · 已渲染 0 条</div>
+  </div>
+
+  <div class="panel">
+    <div class="field">
+      <label>视频源</label>
+      <div class="row">
+        <label class="filebtn primary" for="file">选择本地视频</label>
+        <input type="file" id="file" accept="video/*">
+        <button id="togglePlay">播放 / 暂停</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>弹幕开关</label>
+      <div class="row">
+        <label class="switch"><input type="checkbox" id="dmOn" checked> 显示弹幕</label>
+        <button id="burst">补发 10 条</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>不透明度 <b id="opVal">0.90</b></label>
+      <input type="range" id="opacity" min="0.2" max="1" step="0.05" value="0.9">
+    </div>
+
+    <div class="field">
+      <label>字号 <b id="fsVal">24px</b></label>
+      <input type="range" id="fontSize" min="14" max="40" step="1" value="24">
+    </div>
+
+    <div class="field">
+      <label>速度 <b id="spVal">1.0x</b></label>
+      <input type="range" id="speed" min="0.5" max="2" step="0.1" value="1">
+    </div>
+
+    <div class="field">
+      <label>屏蔽词（逗号分隔）</label>
+      <input type="text" id="blockWords" placeholder="例如：剧透,广告">
+    </div>
+  </div>
+
+  <section class="notes">
+    <div class="card">
+      <h2>已实现</h2>
+      <ul>
+        <li>本地视频加载与播放控制（File API + objectURL）</li>
+        <li>弹幕轨道分配与防重叠</li>
+        <li>基于 WAAPI 的位移动画，暂停/恢复同步</li>
+        <li>字号、透明度、速度、屏蔽词等渲染参数</li>
+        <li>按播放时间轴触发弹幕，而非简单轮播</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>计划接入的开放接口</h2>
+      <ul>
+        <li><code>POST /api/v2/match</code> 视频文件识别</li>
+        <li><code>GET /api/v2/comment/{episodeId}</code> 弹幕获取</li>
+        <li><code>GET /api/v2/search/episodes</code> 番剧搜索</li>
+      </ul>
+      <ul style="margin-top:8px">
+        <li>接口返回结果仅用于本地渲染与短期缓存</li>
+        <li>不二次分发、不对外提供接口、不采集用户数据</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>说明</h2>
+      <ul>
+        <li>纯前端单页，无后端、无数据库、无追踪脚本</li>
+        <li>示例弹幕为自造文案，不代表任何真实接口数据</li>
+        <li>视频文件仅在浏览器内解码，不会上传</li>
+        <li>项目为学习与技术验证性质的原型</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    DanmakuPlayer Prototype · 单文件实现，可直接部署到 GitHub Pages 作为演示页面。<br>
+    本页面不收集任何数据，所有交互均在本机浏览器内完成。
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- 内置示例弹幕（自造文案，仅用于验证渲染引擎） ----
+  var SAMPLE = [
+    { t: 0.6,  text: "这个分镜太帅了" },
+    { t: 1.4,  text: "前方高能预警" },
+    { t: 2.2,  text: "第一次看到这种转场" },
+    { t: 3.0,  text: "作画经费在燃烧", color: "#ffd166" },
+    { t: 3.8,  text: "这段 BGM 好耳熟" },
+    { t: 4.6,  text: "循环播放第三遍" },
+    { t: 5.4,  text: "弹幕护体" },
+    { t: 6.2,  text: "细节拉满了" },
+    { t: 7.0,  text: "这里笑死我了", color: "#7ee787" },
+    { t: 7.8,  text: "截图当壁纸" },
+    { t: 8.6,  text: "节奏把握得真好" },
+    { t: 9.4,  text: "补番中，勿扰" },
+    { t: 10.2, text: "这个运镜有点东西" },
+    { t: 11.0, text: "色彩好舒服" },
+    { t: 11.8, text: "等一个名场面" },
+    { t: 12.6, text: "这帧可以出周边了", color: "#ffd166" },
+    { t: 13.4, text: "字幕组辛苦了" },
+    { t: 14.2, text: "音效做得真细" },
+    { t: 15.0, text: "有没有人注意到背景" },
+    { t: 15.8, text: "第 4 集开始起飞" },
+    { t: 16.6, text: "这句台词记住了" },
+    { t: 17.4, text: "氛围感满分" },
+    { t: 18.2, text: "镜头语言很讲究" },
+    { t: 19.0, text: "看到这里才反应过来" },
+    { t: 19.8, text: "舒服了" },
+    { t: 20.6, text: "转场丝滑" , color: "#7ee787" },
+    { t: 21.4, text: "这个表情包我存了" },
+    { t: 22.2, text: "节奏突然加快" },
+    { t: 23.0, text: "前方催泪注意" },
+    { t: 23.8, text: "别急，后面更精彩" },
+    { t: 24.6, text: "打卡第 128 天" },
+    { t: 25.4, text: "这段配乐单曲循环" },
+    { t: 26.2, text: "画质真清晰" },
+    { t: 27.0, text: "逐帧分析中" },
+    { t: 27.8, text: "这个视角第一次见" },
+    { t: 28.6, text: "笑不活了" },
+    { t: 29.4, text: "坐等下一集" },
+    { t: 30.2, text: "剧情开始收线了" },
+    { t: 31.0, text: "泪目" },
+    { t: 32.0, text: "这个演出太顶了" },
+    { t: 33.0, text: "回看三遍还是有细节" },
+    { t: 34.0, text: "名场面预定" },
+    { t: 35.0, text: "导演懂我" },
+    { t: 36.0, text: "高能结束，缓缓" },
+    { t: 37.5, text: "这一集信息量好大" },
+    { t: 39.0, text: "准备二刷" },
+    { t: 41.0, text: "配乐响起就绷不住了" },
+    { t: 43.0, text: "制作组用心了" }
+  ];
+
+  var video      = document.getElementById("video");
+  var layer      = document.getElementById("dmLayer");
+  var stage      = document.getElementById("stage");
+  var placeholder= document.getElementById("placeholder");
+  var hud        = document.getElementById("hud");
+  var fileInput  = document.getElementById("file");
+  var dmOn       = document.getElementById("dmOn");
+  var opInput    = document.getElementById("opacity");
+  var fsInput    = document.getElementById("fontSize");
+  var spInput    = document.getElementById("speed");
+  var blockInput = document.getElementById("blockWords");
+  var opVal      = document.getElementById("opVal");
+  var fsVal      = document.getElementById("fsVal");
+  var spVal      = document.getElementById("spVal");
+  var btnPlay    = document.getElementById("togglePlay");
+  var btnBurst   = document.getElementById("burst");
+
+  var opts = { enabled: true, opacity: 0.9, fontSize: 24, speed: 1, blocked: [] };
+  var lanes = [];            // 每条轨道上次生成时间戳
+  var running = [];          // 正在跑的动画
+  var emitted = 0;           // 已渲染条数
+  var lastTime = 0;          // 上次 timeupdate 的播放位置
+  var hasVideo = false;
+  var demoTimer = null;
+  var demoIndex = 0;
+  var baseW = 0;             // 速度基准（像素/秒）
+
+  function refreshHud() {
+    hud.textContent = "状态：" + (hasVideo ? "本地视频" : "未加载视频（示例模式）") +
+      " · 已渲染 " + emitted + " 条";
+  }
+
+  function isBlocked(text) {
+    if (!opts.blocked.length) return false;
+    for (var i = 0; i < opts.blocked.length; i++) {
+      var w = opts.blocked[i];
+      if (w && text.indexOf(w) !== -1) return true;
+    }
+    return false;
+  }
+
+  // 选一条最久未使用的轨道，返回 null 表示当前太挤
+  function pickLane() {
+    var laneH = opts.fontSize * 1.65;
+    var total = Math.max(1, Math.floor((layer.clientHeight - 12) / laneH));
+    var now = performance.now();
+    var best = 0, bestT = Infinity;
+    for (var i = 0; i < total; i++) {
+      var t = lanes[i] || 0;
+      if (t < bestT) { bestT = t; best = i; }
+    }
+    if (now - bestT < 620) return null;
+    lanes[best] = now;
+    return { index: best, laneH: laneH };
+  }
+
+  function spawn(text, color) {
+    if (!opts.enabled || !text) return;
+    if (isBlocked(text)) return;
+    var slot = pickLane();
+    if (!slot) return;
+
+    var el = document.createElement("div");
+    el.className = "dm";
+    el.textContent = text;
+    el.style.top = (8 + slot.index * slot.laneH) + "px";
+    el.style.fontSize = opts.fontSize + "px";
+    el.style.color = color || "#ffffff";
+    el.style.opacity = String(opts.opacity);
+    layer.appendChild(el);
+
+    var width = el.offsetWidth;
+    var span = layer.clientWidth + width;
+    var duration = Math.max(4200, (span / (baseW * opts.speed)) * 1000);
+
+    var anim = el.animate(
+      [
+        { transform: "translateX(0px)" },
+        { transform: "translateX(-" + span + "px)" }
+      ],
+      { duration: duration, easing: "linear", fill: "forwards" }
+    );
+
+    running.push(anim);
+    emitted++;
+    refreshHud();
+
+    anim.onfinish = function () {
+      var i = running.indexOf(anim);
+      if (i !== -1) running.splice(i, 1);
+      if (el.parentNode) el.parentNode.removeChild(el);
+    };
+
+    // 视频暂停时，新弹幕也应保持暂停状态
+    if (hasVideo && video.paused) anim.pause();
+  }
+
+  function pauseAll() { running.forEach(function (a) { try { a.pause(); } catch (e) {} }); }
+  function resumeAll() { running.forEach(function (a) { try { a.play(); } catch (e) {} }); }
+
+  // ---- 示例模式：无视频时按节拍吐出弹幕 ----
+  function startDemo() {
+    stopDemo();
+    demoTimer = setInterval(function () {
+      if (!opts.enabled) return;
+      var item = SAMPLE[demoIndex % SAMPLE.length];
+      demoIndex++;
+      spawn(item.text, item.color);
+    }, 900);
+  }
+  function stopDemo() {
+    if (demoTimer) { clearInterval(demoTimer); demoTimer = null; }
+  }
+
+  // ---- 视频模式：按时间轴触发 ----
+  function syncByTime() {
+    var t = video.currentTime;
+    if (t < lastTime || t - lastTime > 2) { lastTime = t; return; }
+    for (var i = 0; i < SAMPLE.length; i++) {
+      var c = SAMPLE[i];
+      if (c.t > lastTime && c.t <= t) spawn(c.text, c.color);
+    }
+    lastTime = t;
+  }
+
+  // ---- 事件绑定 ----
+  fileInput.addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    stopDemo();
+    video.src = URL.createObjectURL(f);
+    hasVideo = true;
+    placeholder.style.display = "none";
+    lastTime = 0;
+    video.play().catch(function () {});
+    refreshHud();
+  });
+
+  btnPlay.addEventListener("click", function () {
+    if (!hasVideo) {
+      // 无视频时手动补发一批，方便观察效果
+      for (var i = 0; i < 6; i++) {
+        var item = SAMPLE[demoIndex++ % SAMPLE.length];
+        spawn(item.text, item.color);
+      }
+      return;
+    }
+    if (video.paused) video.play().catch(function () {}); else video.pause();
+  });
+
+  video.addEventListener("play", resumeAll);
+  video.addEventListener("pause", pauseAll);
+  video.addEventListener("timeupdate", syncByTime);
+  video.addEventListener("seeked", function () { lastTime = video.currentTime; });
+
+  dmOn.addEventListener("change", function () {
+    opts.enabled = dmOn.checked;
+    if (!opts.enabled) {
+      layer.innerHTML = "";
+      running.length = 0;
+    }
+  });
+
+  opInput.addEventListener("input", function () {
+    opts.opacity = Number(opInput.value);
+    opVal.textContent = opts.opacity.toFixed(2);
+    Array.prototype.forEach.call(layer.children, function (el) {
+      el.style.opacity = String(opts.opacity);
+    });
+  });
+
+  fsInput.addEventListener("input", function () {
+    opts.fontSize = Number(fsInput.value);
+    fsVal.textContent = opts.fontSize + "px";
+    Array.prototype.forEach.call(layer.children, function (el) {
+      el.style.fontSize = opts.fontSize + "px";
+    });
+  });
+
+  spInput.addEventListener("input", function () {
+    opts.speed = Number(spInput.value);
+    spVal.textContent = opts.speed.toFixed(1) + "x";
+    if (hasVideo) video.playbackRate = opts.speed;
+  });
+
+  blockInput.addEventListener("input", function () {
+    opts.blocked = blockInput.value.split(/[,，\s]+/).filter(Boolean);
+  });
+
+  btnBurst.addEventListener("click", function () {
+    for (var i = 0; i < 10; i++) {
+      var item = SAMPLE[demoIndex++ % SAMPLE.length];
+      spawn(item.text, item.color);
+    }
+  });
+
+  // 初始化
+  baseW = 140; // 基准速度：140 像素/秒
+  refreshHud();
+  startDemo();
+})();
+</script>
+</body>
+</html>
